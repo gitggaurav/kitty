@@ -50,13 +50,12 @@ brew install kitty
 
 ```bash
 # Linux
-curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Agave.zip
-unzip Agave.zip -d ~/.local/share/fonts/
+curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/ComicShannsMono.zip
 fc-cache -f
 
 # macOS
-curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Agave.zip
-unzip Agave.zip -d ~/Library/Fonts/
+curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/ComicShannsMono.zip
+unzip ComicShannsMono.zip -d ~/Library/Fonts/
 ```
 
 **Install Config:**
