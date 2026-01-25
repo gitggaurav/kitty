@@ -46,7 +46,7 @@ sudo yum install kitty
 brew install kitty
 ```
 
-**Install Agave Nerd Font:**
+**Install ComicShannsMono Nerd Font:**
 
 ```bash
 # Linux
