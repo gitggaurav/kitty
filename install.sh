@@ -1,214 +1,204 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────
+#  kitty · terminal installer
+# ─────────────────────────────────────────────
+set -euo pipefail
 
-# Kitty Terminal Installer
+# ── colors ───────────────────────────────────
+R=$'\033[0;31m'   # red
+G=$'\033[0;32m'   # green
+Y=$'\033[0;33m'   # yellow
+B=$'\033[0;34m'   # blue
+M=$'\033[0;35m'   # magenta
+C=$'\033[0;36m'   # cyan
+W=$'\033[1;37m'   # white bold
+DIM=$'\033[2m'
+BOLD=$'\033[1m'
+NC=$'\033[0m'
 
-set -e
+# ── symbols ──────────────────────────────────
+SYM_OK="  ${G}✓${NC}"
+SYM_FAIL="  ${R}✗${NC}"
+SYM_SKIP="  ${DIM}–${NC}"
+SYM_DOT="${DIM}·${NC}"
+SYM_ARR="${C}›${NC}"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-DIM='\033[2m'
-NC='\033[0m'
+# ── spinner ──────────────────────────────────
+_SPINNER_PID=""
+_spinner_frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
-TOTAL_STEPS=4
-CURRENT_STEP=0
-
-clear
-echo ""
-echo -e "${BLUE}===================================================${NC}"
-echo -e "${WHITE}  Kitty Terminal Configuration Installer${NC}"
-echo -e "${BLUE}===================================================${NC}"
-echo ""
-
-progress_bar() {
-    local progress=$((CURRENT_STEP * 100 / TOTAL_STEPS))
-    local filled=$((progress / 5))
-    local empty=$((20 - filled))
-    
-    echo -ne "\r  ["
-    printf "%${filled}s" | tr ' ' '#'
-    printf "%${empty}s" | tr ' ' '-'
-    echo -ne "] ${progress}%"
-}
-
-step_complete() {
-    CURRENT_STEP=$((CURRENT_STEP + 1))
-    echo -e " ${GREEN}[OK]${NC}"
-    progress_bar
-    echo ""
-}
-
-step_fail() {
-    echo -e " ${RED}[FAILED]${NC}"
-    echo -e "${RED}Installation aborted.${NC}"
-    exit 1
-}
-
-ask_confirm() {
+spinner_start() {
+  local label="${1:-working}"
+  (
+    local i=0
     while true; do
-        echo -ne "${YELLOW}  > ${NC}$1 (y/n): "
-        read -r response
-        case "$response" in
-            [yY]) return 0 ;;
-            [nN]) return 1 ;;
-            *) echo -e "${RED}    Please enter y or n${NC}" ;;
-        esac
+      printf "\r  ${C}%s${NC}  %s " "${_spinner_frames[$i]}" "$label"
+      i=$(( (i + 1) % ${#_spinner_frames[@]} ))
+      sleep 0.08
     done
+  ) &
+  _SPINNER_PID=$!
+  disown "$_SPINNER_PID"
 }
 
+spinner_stop() {
+  if [[ -n "$_SPINNER_PID" ]]; then
+    kill "$_SPINNER_PID" 2>/dev/null
+    wait "$_SPINNER_PID" 2>/dev/null || true
+    _SPINNER_PID=""
+    printf "\r\033[2K"
+  fi
+}
+
+# trap to clean up spinner on exit
+trap 'spinner_stop' EXIT
+
+# ── prompt ───────────────────────────────────
+# ask_confirm <question>  →  0 = yes, 1 = no
+ask_confirm() {
+  local question="$1"
+  while true; do
+    printf "\n  ${C}?${NC}  ${W}%s${NC}  ${DIM}y/n${NC}  " "$question"
+    read -r -n1 key </dev/tty
+    echo
+    case "$key" in
+      y|Y) return 0 ;;
+      n|N) return 1 ;;
+      *)   printf "      ${DIM}enter y or n${NC}\n" ;;
+    esac
+  done
+}
+
+# ── status line printer ───────────────────────
+# status_line <icon> <label> <value>
+status_line() {
+  local icon="$1" label="$2" value="$3"
+  printf "  %s  ${DIM}%-18s${NC}  %s\n" "$icon" "$label" "$value"
+}
+
+# ── os detection ─────────────────────────────
 detect_os() {
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            OS=$ID
-        else
-            OS="unknown"
-        fi
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        OS="macos"
-    else
-        OS="unknown"
-    fi
+  if [[ "$OSTYPE" == darwin* ]]; then
+    OS="macos"
+  elif [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    OS=$(. /etc/os-release && echo "${ID:-unknown}")
+  else
+    OS="unknown"
+  fi
 }
 
-progress_bar
-echo ""
-echo ""
+# ── header ───────────────────────────────────
+clear
+printf "\n"
+printf "  ${DIM}╭──────────────────────────────────────╮${NC}\n"
+printf "  ${DIM}│${NC}  ${C}≋${NC}  ${W}kitty${NC} ${DIM}terminal installer${NC}          ${DIM}│${NC}\n"
+printf "  ${DIM}╰──────────────────────────────────────╯${NC}\n"
+printf "\n"
 
-# Step 1: System Check
-CURRENT_STEP=1
-echo -e "${CYAN}[1/4] Checking system...${NC}"
+# ── step 1: detect system ────────────────────
 detect_os
-echo -ne "  Detected: $OS"
 
 if [[ "$OS" == "unknown" ]]; then
-    step_fail
+  status_line "$SYM_FAIL" "system" "unsupported OS"
+  printf "\n  ${R}Aborted.${NC}\n\n"
+  exit 1
 fi
-step_complete
-sleep 0.5
 
-# Step 2: Install Kitty
-CURRENT_STEP=2
-echo -e "${CYAN}[2/4] Installing Kitty terminal...${NC}"
+status_line "$SYM_OK" "system" "${DIM}${OS}${NC}"
 
-if command -v kitty &> /dev/null; then
-    echo -ne "  Kitty already installed"
-    step_complete
+# ── step 2: install kitty ────────────────────
+if command -v kitty &>/dev/null; then
+  KITTY_VER=$(kitty --version 2>/dev/null | awk '{print $2}')
+  status_line "$SYM_OK" "kitty" "${DIM}v${KITTY_VER} — already installed${NC}"
 else
-    if ask_confirm "Kitty not found. Install it?"; then
-        echo "  Installing..."
-        case "$OS" in
-            arch|manjaro)
-                sudo pacman -S --noconfirm kitty > /dev/null 2>&1
-                ;;
-            ubuntu|debian|linuxmint)
-                sudo apt update > /dev/null 2>&1 && sudo apt install -y kitty > /dev/null 2>&1
-                ;;
-            fedora)
-                sudo dnf install -y kitty > /dev/null 2>&1
-                ;;
-            rhel|centos)
-                sudo yum install -y kitty > /dev/null 2>&1
-                ;;
-            macos)
-                brew install kitty > /dev/null 2>&1
-                ;;
-            *)
-                echo -e "${RED}  Unsupported OS for auto-install${NC}"
-                step_fail
-                ;;
-        esac
-        
-        if [ $? -eq 0 ]; then
-            echo -ne "  Installation complete"
-            step_complete
-        else
-            step_fail
-        fi
+  if ask_confirm "kitty not found — install it?"; then
+    spinner_start "installing kitty"
+    INSTALL_OK=0
+    case "$OS" in
+      arch|manjaro)    sudo pacman -S --noconfirm kitty &>/dev/null && INSTALL_OK=1 ;;
+      ubuntu|debian|linuxmint) sudo apt-get update &>/dev/null && sudo apt-get install -y kitty &>/dev/null && INSTALL_OK=1 ;;
+      fedora)          sudo dnf install -y kitty &>/dev/null && INSTALL_OK=1 ;;
+      rhel|centos)     sudo yum install -y kitty &>/dev/null && INSTALL_OK=1 ;;
+      macos)           brew install kitty &>/dev/null && INSTALL_OK=1 ;;
+    esac
+    spinner_stop
+    if [[ $INSTALL_OK -eq 1 ]]; then
+      status_line "$SYM_OK" "kitty" "${DIM}installed${NC}"
     else
-        step_fail
+      status_line "$SYM_FAIL" "kitty" "install failed"
+      printf "\n  ${R}Aborted.${NC}\n\n"
+      exit 1
     fi
+  else
+    status_line "$SYM_FAIL" "kitty" "required — aborting"
+    printf "\n  ${R}Aborted.${NC}\n\n"
+    exit 1
+  fi
 fi
-sleep 0.5
 
-# Step 3: Install Font
-CURRENT_STEP=3
-echo -e "${CYAN}[3/4] Installing Agave Nerd Font...${NC}"
+# ── step 3: agave nerd font ──────────────────
+if ask_confirm "install Agave Nerd Font?"; then
+  spinner_start "downloading Agave Nerd Font"
 
-if ask_confirm "Download and install font?"; then
-    echo "  Downloading font..."
-    
-    TEMP_DIR=$(mktemp -d)
-    cd "$TEMP_DIR"
-    
-    curl -sLO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Agave.zip
-    
-    if [ $? -eq 0 ]; then
-        if [[ "$OS" == "macos" ]]; then
-            FONT_DIR="$HOME/Library/Fonts"
-        else
-            FONT_DIR="$HOME/.local/share/fonts"
-        fi
-        
-        mkdir -p "$FONT_DIR"
-        unzip -q -o Agave.zip -d "$FONT_DIR"
-        
-        if [[ "$OS" != "macos" ]]; then
-            fc-cache -f > /dev/null 2>&1
-        fi
-        
-        rm -rf "$TEMP_DIR"
-        echo -ne "  Font installed"
-        step_complete
-    else
-        rm -rf "$TEMP_DIR"
-        step_fail
-    fi
+  if [[ "$OS" == "macos" ]]; then
+    FONT_DIR="$HOME/Library/Fonts"
+  else
+    FONT_DIR="$HOME/.local/share/fonts"
+  fi
+
+  mkdir -p "$FONT_DIR"
+  TMPDIR=$(mktemp -d)
+
+  FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Agave.zip"
+  if curl -fsSL "$FONT_URL" -o "$TMPDIR/Agave.zip" 2>/dev/null; then
+    unzip -q -o "$TMPDIR/Agave.zip" -d "$FONT_DIR"
+    [[ "$OS" != "macos" ]] && fc-cache -f &>/dev/null
+    rm -rf "$TMPDIR"
+    spinner_stop
+    status_line "$SYM_OK" "agave nerd font" "${DIM}installed → ${FONT_DIR}${NC}"
+  else
+    rm -rf "$TMPDIR"
+    spinner_stop
+    status_line "$SYM_FAIL" "agave nerd font" "download failed"
+    printf "\n  ${R}Aborted.${NC}\n\n"
+    exit 1
+  fi
 else
-    echo -ne "  Skipped"
-    step_complete
+  status_line "$SYM_SKIP" "agave nerd font" "${DIM}skipped${NC}"
 fi
-sleep 0.5
 
-# Step 4: Install Config
-CURRENT_STEP=4
-echo -e "${CYAN}[4/4] Setting up configuration...${NC}"
+# ── step 4: config ────────────────────────────
+if ask_confirm "install kitty config?"; then
+  mkdir -p "$HOME/.config/kitty"
+  CONF="$HOME/.config/kitty/kitty.conf"
 
-if ask_confirm "Install Kitty configuration?"; then
-    mkdir -p ~/.config/kitty
-    
-    if [ -f ~/.config/kitty/kitty.conf ]; then
-        echo -e "${DIM}  Existing config found. Creating backup automatically...${NC}"
-        BACKUP_NAME="kitty.conf.backup.$(date +%Y%m%d_%H%M%S)"
-        cp ~/.config/kitty/kitty.conf ~/.config/kitty/"$BACKUP_NAME"
-        echo -e "${DIM}  Backup saved as: $BACKUP_NAME${NC}"
-    fi
-    
-    echo "  Downloading config..."
-    curl -sL -o ~/.config/kitty/kitty.conf https://raw.githubusercontent.com/gitggaurav/kitty/main/kitty.conf
-    
-    if [ $? -eq 0 ]; then
-        echo -ne "  Configuration installed"
-        step_complete
-    else
-        step_fail
-    fi
+  if [[ -f "$CONF" ]]; then
+    BACKUP="${CONF}.bak.$(date +%Y%m%d_%H%M%S)"
+    cp "$CONF" "$BACKUP"
+    printf "  ${DIM}   backup → %s${NC}\n" "$(basename "$BACKUP")"
+  fi
+
+  spinner_start "fetching config"
+  CONF_URL="https://raw.githubusercontent.com/gitggaurav/kitty/main/kitty.conf"
+  if curl -fsSL "$CONF_URL" -o "$CONF" 2>/dev/null; then
+    spinner_stop
+    status_line "$SYM_OK" "config" "${DIM}~/.config/kitty/kitty.conf${NC}"
+  else
+    spinner_stop
+    status_line "$SYM_FAIL" "config" "download failed"
+    printf "\n  ${R}Aborted.${NC}\n\n"
+    exit 1
+  fi
 else
-    step_fail
+  status_line "$SYM_SKIP" "config" "${DIM}skipped${NC}"
 fi
 
-# Completion
-echo ""
-echo -e "${GREEN}===================================================${NC}"
-echo -e "${GREEN}  Installation Complete${NC}"
-echo -e "${GREEN}===================================================${NC}"
-echo ""
-echo "  Next steps:"
-echo "    1. Launch Kitty: ${CYAN}kitty${NC}"
-echo "    2. Config location: ${DIM}~/.config/kitty/kitty.conf${NC}"
-echo ""
-echo -e "${DIM}  Features: Agave Font | Warm Colors | Powerline Tabs${NC}"
-echo ""
+# ── done ─────────────────────────────────────
+printf "\n"
+printf "  ${DIM}──────────────────────────────────────────${NC}\n"
+printf "  ${G}✓${NC}  ${W}all done${NC}\n"
+printf "\n"
+printf "  ${SYM_ARR}  run ${C}kitty${NC} to launch\n"
+printf "  ${SYM_ARR}  config at ${DIM}~/.config/kitty/kitty.conf${NC}\n"
+printf "\n"
