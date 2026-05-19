@@ -1,80 +1,112 @@
-# Kitty Terminal Config
+<div align="center">
 
-Minimal, modern Kitty configuration for Linux and macOS. Features Agave Nerd Font with a custom warm color scheme.
+```
+≋  kitty
+```
 
-## Features
+**a minimal terminal configuration**  
+*warm colors · nerd fonts · powerline tabs*
 
-- Clean powerline tabs with slanted style
-- Smooth cursor trail animation
-- Interactive scrollbar
-- Vim/Nano friendly mouse bindings
-- 98% background opacity
-- Optimized performance settings
+</div>
 
-## Installation
+---
 
-### Single Command Installer
+### features
+
+```
+⠿  powerline tabs       slanted style, clean separators
+⠿  cursor trail         smooth animation
+⠿  scrollbar            interactive, minimal
+⠿  mouse bindings       vim & nano friendly
+⠿  opacity              98% — just enough blur
+⠿  performance          gpu-accelerated rendering
+```
+
+---
+
+### install
+
+**one line**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/gitggaurav/kitty/main/install.sh)
 ```
 
-The installer will:
-1. Detect your operating system
-2. Install Kitty terminal
-3. Download and install Agave Nerd Font
-4. Set up the configuration file
+detects your OS → installs kitty → installs Agave Nerd Font → drops the config.
 
-### Manual Installation
+<br>
 
-**Install Kitty:**
+**manual**
+
+<details>
+<summary>kitty</summary>
 
 ```bash
-# Arch Linux
+# arch
 sudo pacman -S kitty
 
-# Ubuntu/Debian
+# ubuntu / debian
 sudo apt install kitty
 
-# Fedora
+# fedora
 sudo dnf install kitty
 
-# RHEL/CentOS
-sudo yum install kitty
-
-# macOS
+# macos
 brew install kitty
 ```
 
-**Install ComicShannsMono Nerd Font:**
+</details>
+
+<details>
+<summary>font — ComicShannsMono Nerd Font</summary>
 
 ```bash
-# Linux
+# linux
 curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/ComicShannsMono.zip
+unzip ComicShannsMono.zip -d ~/.local/share/fonts/
 fc-cache -f
 
-# macOS
+# macos
 curl -LO https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/ComicShannsMono.zip
 unzip ComicShannsMono.zip -d ~/Library/Fonts/
 ```
 
-**Install Config:**
+</details>
+
+<details>
+<summary>config</summary>
 
 ```bash
 mkdir -p ~/.config/kitty
-curl -o ~/.config/kitty/kitty.conf https://raw.githubusercontent.com/gitggaurav/kitty/main/kitty.conf
+curl -o ~/.config/kitty/kitty.conf \
+  https://raw.githubusercontent.com/gitggaurav/kitty/main/kitty.conf
 ```
 
-## Color Scheme
+</details>
 
-Custom warm palette with dark background (`#181c27`) and muted earth tones. Cursor highlights in soft blue.
+---
 
-## Requirements
+### palette
 
-- Kitty terminal emulator
-- Agave Nerd Font or any Nerd Font
-- Linux or macOS
+```
+  #181c27   background     dark blue-gray
+  #e8d5b0   foreground     warm parchment
+  #7a9fc2   cursor         soft blue
+  #2a2f3f   selection      muted indigo
+```
 
-## License
+---
 
-MIT
+### requirements
+
+- kitty ≥ 0.32
+- any [Nerd Font](https://www.nerdfonts.com)
+- linux or macos
+
+---
+
+<div align="center">
+
+`MIT` · made with care
+
+</div>
